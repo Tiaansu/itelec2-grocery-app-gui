@@ -7,6 +7,8 @@ import javax.swing.plaf.*;
 import javax.swing.plaf.basic.*;
 import java.sql.*;
 import java.sql.Statement;
+import java.time.*;
+import java.time.format.*;
 import java.util.*;
 import java.util.List;
 
@@ -23,6 +25,24 @@ class Product {
         this.category = category;
         this.stocks = stocks;
         this.price = price;
+    }
+}
+
+class ProductPreview {
+    private String productName;
+    private ImageIcon productPreview;
+
+    public ProductPreview(String productName) {
+        this.productName = productName;
+        productPreview = new ImageIcon(new ImageIcon(String.format("Images/products/%s.png", productName)).getImage().getScaledInstance(22, 22, Image.SCALE_SMOOTH));
+    }
+
+    public ImageIcon getProductPreview() {
+        return productPreview;
+    }
+
+    public String getProductName() {
+        return productName;
     }
 }
 
@@ -69,10 +89,14 @@ public class Main {
         normalFont = new Font("Sans Serif", Font.PLAIN, 14);
 
     final private ImageIcon appIcon = new ImageIcon("Images/grocery.png");
+
+    final private int MINIMUM_ITEM_TO_SHOW_SCROLL_BARS = 6;
+    final private int CURRENT_GROCERY_ITEMS_COUNT = 78;
     
     private static List<ShoppingCartItem> shoppingCartItems = new ArrayList<>();
+    private static List<ProductPreview> productPreviews = new ArrayList<>();
 
-    private static JFrame mainFrame, secondaryFrame, thirdFrame, fourthFrame;
+    private static JFrame mainFrame, loadingGroceryItemsFrame, categoriesFrame, groceryItemsFrame, shoppingCartFrame, checkoutFrame;
     private static JTextArea taskOutput;
     private static CustomButton btnGenerateGroceryItems, btnBrowseCategories;
     private static JProgressBar taskProgress;
@@ -89,6 +113,12 @@ public class Main {
         }
 
         return connection;
+    }
+
+    private String getCurrentDate() {
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEEE, MMMM dd yyyy - hh:mm:ss a");
+        return now.format(formatter);
     }
 
     /**
@@ -237,13 +267,15 @@ public class Main {
                     int stocks = new Random().nextInt(200 - 10) + 10;
                     PreparedStatement pstmt = connection.prepareStatement(pstr);
 
+                    productPreviews.add(new ProductPreview(groceryItems.get(i).productName));
+
                     pstmt.setString(1, groceryItems.get(i).productName);
                     pstmt.setInt(2, groceryItems.get(i).category);
                     pstmt.setInt(3, stocks);
                     pstmt.setInt(4, groceryItems.get(i).price);
                     pstmt.executeUpdate();
                     setProgress(i + 1);
-                    taskOutput.setText(String.format("Added item %s, category %s, stocks %s, price $%s.\n%s", groceryItems.get(i).productName, getCategory(groceryItems.get(i).category), stocks, groceryItems.get(i).price, taskOutput.getText()));
+                    taskOutput.setText(String.format("Added item %s, category %s, stocks %s, price ₱%s.\n%s", groceryItems.get(i).productName, getCategory(groceryItems.get(i).category), stocks, groceryItems.get(i).price, taskOutput.getText()));
                 }
             } catch (SQLException e) {
                 System.out.println(e.getMessage());
@@ -262,11 +294,11 @@ public class Main {
 
         @Override
         public void done() {
-            secondaryFrame.setCursor(null);
+            loadingGroceryItemsFrame.setCursor(null);
             taskOutput.setText(String.format("Done loading grocery items.\n%s", taskOutput.getText()));
 
-            JOptionPane.showMessageDialog(secondaryFrame, "Done loading grocery items", "Tindahan ni Aling Nena", JOptionPane.INFORMATION_MESSAGE);
-            secondaryFrame.dispose();
+            JOptionPane.showMessageDialog(null, "Done loading grocery items", "Tindahan ni Aling Nena", JOptionPane.INFORMATION_MESSAGE);
+            loadingGroceryItemsFrame.dispose();
             mainFrame.setVisible(true);
         }
     }
@@ -319,19 +351,19 @@ public class Main {
         return category;
     }
 
-    private void initializeSecondaryFrame() {
+    private void initializeLoadingFrame() {
         mainFrame.dispose();
 
-        /* ---------------------[ Secondary frame start ]--------------------- */
-        secondaryFrame = new JFrame();
-        secondaryFrame.setLayout(new BorderLayout());
-        secondaryFrame.setTitle("Tindahan ni Aling Nena - Loading grocery items...");
-        secondaryFrame.setSize(800, 600);
-        secondaryFrame.setResizable(false);
-        secondaryFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        secondaryFrame.setLocationRelativeTo(null);
+        /* ---------------------[ Loading grocery items frame start ]--------------------- */
+        loadingGroceryItemsFrame = new JFrame();
+        loadingGroceryItemsFrame.setLayout(new BorderLayout());
+        loadingGroceryItemsFrame.setTitle("Tindahan ni Aling Nena - Loading grocery items...");
+        loadingGroceryItemsFrame.setSize(800, 600);
+        loadingGroceryItemsFrame.setResizable(false);
+        loadingGroceryItemsFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        loadingGroceryItemsFrame.setLocationRelativeTo(null);
 
-        secondaryFrame.setIconImage(appIcon.getImage());
+        loadingGroceryItemsFrame.setIconImage(appIcon.getImage());
 
         /* ---------------------[ Main panel start ]--------------------- */
         JPanel mainPanel = new JPanel(new BorderLayout());
@@ -359,13 +391,13 @@ public class Main {
         mainPanel.add(headerPanel, BorderLayout.NORTH);
 
         /* ---------------------[ Center start ]--------------------- */
-        taskProgress = new JProgressBar(0, 78);
+        taskProgress = new JProgressBar(0, CURRENT_GROCERY_ITEMS_COUNT);
         taskProgress.setValue(0);
         taskProgress.setPreferredSize(new Dimension(560, 25));
         taskProgress.setStringPainted(true);
         taskProgress.setFont(normalFont);
 
-        taskOutput = new JTextArea("Hi", 25, 50);
+        taskOutput = new JTextArea("", 25, 50);
         taskOutput.setBackground(bgBtnBlack);
         taskOutput.setForeground(fgWhite);
         taskOutput.setMargin(new Insets(5, 5, 5, 5));
@@ -374,7 +406,7 @@ public class Main {
 
         JScrollPane taskScroll = new JScrollPane(taskOutput);
         taskScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        taskScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        taskScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
 
         JPanel centerPanel = new JPanel();
         centerPanel.setBackground(bgBlack);
@@ -386,30 +418,30 @@ public class Main {
         mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(centerPanel, BorderLayout.CENTER);
         /* ---------------------[ Main panel end ]--------------------- */
-        secondaryFrame.add(mainPanel);
-        /* ---------------------[ Secondary frame end ]--------------------- */
+        loadingGroceryItemsFrame.add(mainPanel);
+        /* ---------------------[ Loading grocery items frame end ]--------------------- */
 
-        secondaryFrame.setVisible(true);
+        loadingGroceryItemsFrame.setVisible(true);
     }
 
-    private void initializeThirdFrame() {
-        if (secondaryFrame != null && secondaryFrame.isVisible()) {
-            secondaryFrame.dispose();
+    private void initializeCategoriesFrame() {
+        if (loadingGroceryItemsFrame != null && loadingGroceryItemsFrame.isVisible()) {
+            loadingGroceryItemsFrame.dispose();
         }
         if (mainFrame != null && mainFrame.isVisible()) {
             mainFrame.dispose();
         }
 
-        /* ---------------------[ Third frame start ]--------------------- */
-        thirdFrame = new JFrame();
-        thirdFrame.setLayout(new BorderLayout());
-        thirdFrame.setTitle("Tindahan ni Aling Nena - Categories");
-        thirdFrame.setSize(800, 600);
-        thirdFrame.setResizable(false);
-        thirdFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        thirdFrame.setLocationRelativeTo(null);
+        /* ---------------------[ Categories frame start ]--------------------- */
+        categoriesFrame = new JFrame();
+        categoriesFrame.setLayout(new BorderLayout());
+        categoriesFrame.setTitle("Tindahan ni Aling Nena - Categories");
+        categoriesFrame.setSize(800, 600);
+        categoriesFrame.setResizable(false);
+        categoriesFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        categoriesFrame.setLocationRelativeTo(null);
 
-        thirdFrame.setIconImage(appIcon.getImage());
+        categoriesFrame.setIconImage(appIcon.getImage());
         /* ---------------------[ Main panel start ]--------------------- */
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(bgBlack);
@@ -447,7 +479,7 @@ public class Main {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     if (chosenCategory == 9) {
-                        thirdFrame.dispose();
+                        categoriesFrame.dispose();
                         mainFrame.setVisible(true);
                     } else {
                         initializeItemsFrame(chosenCategory);
@@ -461,32 +493,531 @@ public class Main {
         mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(centerPanel, BorderLayout.CENTER);
         /* ---------------------[ Main panel end ]--------------------- */
-        thirdFrame.add(mainPanel);
-        /* ---------------------[ Third frame end ]--------------------- */
-        thirdFrame.setVisible(true);
+        categoriesFrame.add(mainPanel);
+        /* ---------------------[ Categories frame end ]--------------------- */
+        categoriesFrame.setVisible(true);
     }
 
-    private void initializeItemsFrame(int categoryId) {
-        if (thirdFrame != null && thirdFrame.isVisible()) {
-            thirdFrame.dispose();
+    private void initializeShoppingCartItems(int categoryId) {
+        if (groceryItemsFrame != null && groceryItemsFrame.isVisible()) {
+            groceryItemsFrame.dispose();
         }
-        if (secondaryFrame != null && secondaryFrame.isVisible()) {
-            secondaryFrame.dispose();
+        if (categoriesFrame != null && categoriesFrame.isVisible()) {
+            categoriesFrame.dispose();
+        }
+        if (loadingGroceryItemsFrame != null && loadingGroceryItemsFrame.isVisible()) {
+            loadingGroceryItemsFrame.dispose();
         }
         if (mainFrame != null && mainFrame.isVisible()) {
             mainFrame.dispose();
         }
 
-         /* ---------------------[ Fourth frame start ]--------------------- */
-        fourthFrame = new JFrame();
-        fourthFrame.setLayout(new BorderLayout());
-        fourthFrame.setTitle(String.format("Tindahan ni Aling Nena - %s", getCategory(categoryId)));
-        fourthFrame.setSize(800, 600);
-        fourthFrame.setResizable(false);
-        fourthFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        fourthFrame.setLocationRelativeTo(null);
+        /* ---------------------[ Shopping cart start ]--------------------- */
+        shoppingCartFrame = new JFrame();
+        shoppingCartFrame.setLayout(new BorderLayout());
+        shoppingCartFrame.setTitle("Tindahan ni Aling Nena - Your shopping cart");
+        shoppingCartFrame.setSize(800, 600);
+        shoppingCartFrame.setResizable(false);
+        shoppingCartFrame.setLocationRelativeTo(null);
 
-        fourthFrame.setIconImage(appIcon.getImage());
+        shoppingCartFrame.addWindowListener(new WindowListener() {
+            @Override
+            public void windowOpened(WindowEvent e) {}
+
+            @Override
+            public void windowClosing(WindowEvent e) {
+                shoppingCartFrame.dispose();
+                groceryItemsFrame.setVisible(true);
+            }
+
+            @Override
+            public void windowClosed(WindowEvent e) {
+                shoppingCartFrame.dispose();
+                groceryItemsFrame.setVisible(true);
+            }
+
+            @Override
+            public void windowIconified(WindowEvent e) {
+                shoppingCartFrame.dispose();
+                groceryItemsFrame.setVisible(true);
+            }
+
+            @Override
+            public void windowDeiconified(WindowEvent e) {}
+
+            @Override
+            public void windowActivated(WindowEvent e) {}
+
+            @Override
+            public void windowDeactivated(WindowEvent e) {}
+        });
+
+        shoppingCartFrame.setIconImage(appIcon.getImage());
+
+        /* ---------------------[ Main panel start ]--------------------- */
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(bgBlack);
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        /* ---------------------[ Header start ]--------------------- */
+        JLabel titleLabel = new JLabel("Your shopping cart");
+        titleLabel.setFont(titleFont);
+        titleLabel.setForeground(fgWhite);
+        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        headerPanel.add(titleLabel, BorderLayout.NORTH);
+        headerPanel.setBackground(bgBlack);
+        headerPanel.setOpaque(false);
+        /* ---------------------[ Header end ]--------------------- */
+
+        /* ---------------------[ Center start ]--------------------- */
+        JPanel centerPanel = new JPanel();
+        centerPanel.setLayout(new GridLayout(0, 3, 2, 2));
+        centerPanel.setBackground(bgBlack);
+        centerPanel.setOpaque(false);
+
+        List<Product> products = new ArrayList<>();
+
+        Connection connection = connect();
+        try {
+            Statement statement = connection.createStatement();
+            ResultSet rs = statement.executeQuery(String.format("SELECT * FROM grocery_items WHERE category = %d", categoryId));
+
+            while (rs.next()) {
+                products.add(new Product(rs.getInt("id"), rs.getString("name"), getCategory(rs.getInt("category")), rs.getInt("stocks"), rs.getInt("price")));
+            }
+        } catch (SQLException e) {
+            System.err.println(e.getMessage());
+        } finally {
+            try {
+                if (connection != null) {
+                    connection.close();
+                }
+            } catch (SQLException e) {
+                System.err.println(e.getMessage());
+            }
+        }
+
+        for (int i = 0; i < shoppingCartItems.size(); i ++) {
+            JPanel itemPanel = new JPanel();
+            itemPanel.setLayout(new BorderLayout());
+            itemPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+            itemPanel.setBackground(bgItemPanelBlack);
+            itemPanel.setPreferredSize(new Dimension(200, 175));
+
+            ImageIcon itemIcon = null;
+
+            for (ProductPreview productPreview : productPreviews) {
+                if (productPreview.getProductName().equals(shoppingCartItems.get(i).productName)) {
+                    itemIcon = productPreview.getProductPreview();
+                    break;
+                }
+            }
+
+            if (itemIcon == null) {
+                itemIcon = new ImageIcon(new ImageIcon(String.format("Images/products/%s.png", shoppingCartItems.get(i).productName)).getImage().getScaledInstance(22, 22, Image.SCALE_SMOOTH));
+            }
+
+            JLabel itemName = new JLabel(shoppingCartItems.get(i).productName);
+            itemName.setFont(btnFont);
+            itemName.setForeground(fgWhite);
+            itemName.setIcon(itemIcon);
+
+            JLabel itemSummary = new JLabel(String.format("<html>Price: ₱%d<br />Quantity: %d<br /><br />Total Price: ₱%d</html>", shoppingCartItems.get(i).price, shoppingCartItems.get(i).quantity, shoppingCartItems.get(i).price * shoppingCartItems.get(i).quantity));
+            itemSummary.setFont(normalFont);
+            itemSummary.setForeground(fgWhite);
+
+            CustomButton itemUpdate = new CustomButton("Update");
+
+            final int chosenItemToUpdate = i;
+            itemUpdate.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    for (int j = 0; j < products.size(); j ++) {
+                        if (products.get(j).id == shoppingCartItems.get(chosenItemToUpdate).id) {
+                            String value = JOptionPane.showInputDialog(null, String.format("Please enter the new quantity below: (Make sure it's lower than %d)", products.get(j).stocks), String.format("Tindahan ni Aling Nena - Update %s", shoppingCartItems.get(chosenItemToUpdate).productName), JOptionPane.QUESTION_MESSAGE);
+                            
+                            if (value != null) {
+                                if (value.isBlank()) {
+                                    actionPerformed(e);
+                                    return;
+                                }
+
+                                int finalValue = Integer.parseInt(value);
+
+                                if (finalValue < 0) {
+                                    actionPerformed(e);
+                                    return;
+                                }
+
+                                if (finalValue == 0) {
+                                    int reply = JOptionPane.showConfirmDialog(null, String.format("Want to remove item %s with %d of quantity in your shopping cart? It will decrease your shopping cart's total price by ₱%s.", shoppingCartItems.get(chosenItemToUpdate).productName, shoppingCartItems.get(chosenItemToUpdate).quantity, products.get(j).price * shoppingCartItems.get(chosenItemToUpdate).quantity), String.format("Tindahan ni Aling Nena - Remove %s", shoppingCartItems.get(chosenItemToUpdate).productName), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+
+                                    if (reply == JOptionPane.YES_OPTION) {
+                                        shoppingCartItems.remove(chosenItemToUpdate);
+
+                                        if (shoppingCartItems.size() <= 0) {
+                                            shoppingCartFrame.dispose();
+                                            initializeItemsFrame(categoryId);
+                                        } else {
+                                            shoppingCartFrame.setVisible(false);
+                                            initializeShoppingCartItems(categoryId);
+                                        }
+                                    } else {
+                                        actionPerformed(e);
+                                    }
+                                    return;
+                                }
+
+                                if (products.get(j).stocks - finalValue < 0) {
+                                    JOptionPane.showConfirmDialog(null, String.format("Item %s's stock is not enough to your entered quantity, want to continue? (This will override your selected quantity to available stock)", shoppingCartItems.get(chosenItemToUpdate).productName), String.format("Tindahan ni Aling Nena - Update %s", shoppingCartItems.get(chosenItemToUpdate).productName), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+
+                                    finalValue = products.get(j).stocks;
+                                }
+
+                                int reply = JOptionPane.showConfirmDialog(null, String.format("Want to set item %s's quantity to %d (%d before)? Its total price will be ₱%s.", products.get(j).name, finalValue, shoppingCartItems.get(chosenItemToUpdate).quantity, products.get(j).price * finalValue), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(j).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                            
+                                if (reply == JOptionPane.YES_OPTION) {
+                                    shoppingCartItems.set(chosenItemToUpdate, new ShoppingCartItem(products.get(j).id, finalValue, products.get(j).name, products.get(j).price));
+                                    shoppingCartFrame.setVisible(false);
+                                    initializeShoppingCartItems(categoryId);
+                                } else {
+                                    actionPerformed(e);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            itemPanel.add(itemName, BorderLayout.NORTH);
+            itemPanel.add(itemSummary, BorderLayout.CENTER);
+            itemPanel.add(itemUpdate, BorderLayout.SOUTH);
+
+            centerPanel.add(itemPanel);
+        }
+        
+        if (shoppingCartItems.size() <= MINIMUM_ITEM_TO_SHOW_SCROLL_BARS) {
+            for (int i = 0; i < CURRENT_GROCERY_ITEMS_COUNT - shoppingCartItems.size(); i ++) {
+                centerPanel.add(new JPanel() {
+                    @Override
+                    public Color getBackground() {
+                        return bgBlack;
+                    }
+                });
+            }
+        }
+
+        ScrollBarUI myUI = new BasicScrollBarUI() {
+            @Override
+            protected void configureScrollBarColors() {
+                this.thumbColor = fgScrollBarThumb;
+                this.trackColor = bgScrollBarTrack;
+                this.scrollBarWidth = 15;
+            }
+        };
+        
+        JScrollPane itemsScroll = new JScrollPane(centerPanel);
+        itemsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        itemsScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+        itemsScroll.setWheelScrollingEnabled(false);
+
+        if (shoppingCartItems.size() > MINIMUM_ITEM_TO_SHOW_SCROLL_BARS) {
+            itemsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+            itemsScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+            itemsScroll.setWheelScrollingEnabled(true);
+        }
+        
+        itemsScroll.getVerticalScrollBar().setUnitIncrement(8);
+        itemsScroll.getHorizontalScrollBar().setUnitIncrement(8);
+        itemsScroll.getViewport().setBackground(bgBlack);
+        itemsScroll.getVerticalScrollBar().setUI(myUI);
+        itemsScroll.setPreferredSize(new Dimension(650, 350));
+
+        for (Component component : itemsScroll.getVerticalScrollBar().getComponents()) {
+            itemsScroll.getVerticalScrollBar().remove(component);
+        }
+        itemsScroll.setBorder(BorderFactory.createEmptyBorder());
+        /* ---------------------[ Center end ]--------------------- */
+
+        /* ---------------------[ Footer start ]--------------------- */
+        CustomButton backButton = new CustomButton(String.format("Back to %s section", getCategory(categoryId)));
+        CustomButton checkOutButton = new CustomButton("Checkout");
+
+        backButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                shoppingCartFrame.dispose();
+                groceryItemsFrame.setVisible(true);
+            }
+        });
+
+        checkOutButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int totalPrice = 0;
+
+                for (ShoppingCartItem shoppingCartItem : shoppingCartItems) {
+                    totalPrice += shoppingCartItem.price * shoppingCartItem.quantity;
+                }
+
+                String value = JOptionPane.showInputDialog(null, String.format("Please enter your money below: (Make sure it's higher than ₱%d)", totalPrice), "Tindahan ni Aling Nena - Checkout shopping cart items", JOptionPane.QUESTION_MESSAGE);
+                
+                if (value != null) {
+                    if (value.isBlank()) {
+                        actionPerformed(e);
+                        return;
+                    }
+
+                    int finalValue = Integer.parseInt(value);
+
+                    if (totalPrice > finalValue) {
+                        JOptionPane.showConfirmDialog(null, String.format("Insufficient money, you still need ₱%d to continue.", totalPrice - finalValue), "Tindahan ni Aling Nena - Checkout shopping cart items", JOptionPane.YES_OPTION, JOptionPane.ERROR_MESSAGE);
+                        actionPerformed(e);
+                        return;
+                    }
+                    initializeCheckoutFrame(finalValue);
+                }
+            }
+        });
+
+        backButton.setPreferredSize(new Dimension(300, 50));
+        checkOutButton.setPreferredSize(new Dimension(300, 50));
+
+        JPanel footerPanel = new JPanel(new BorderLayout());
+        footerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        footerPanel.setBackground(bgBlack);
+        footerPanel.setOpaque(false);
+        footerPanel.add(backButton, BorderLayout.WEST);
+        footerPanel.add(checkOutButton, BorderLayout.EAST);
+        /* ---------------------[ Footer end ]--------------------- */
+        mainPanel.add(headerPanel, BorderLayout.NORTH);
+        mainPanel.add(itemsScroll, BorderLayout.CENTER);
+        mainPanel.add(footerPanel, BorderLayout.SOUTH);
+        /* ---------------------[ Main panel end ]--------------------- */
+        shoppingCartFrame.add(mainPanel);
+        /* ---------------------[ Shopping cart end ]--------------------- */
+
+        shoppingCartFrame.setVisible(true);
+    }
+
+    private void initializeCheckoutFrame(int userMoney) {
+        if (mainFrame != null && mainFrame.isVisible()) {
+            mainFrame.dispose();
+        }
+        if (categoriesFrame != null && categoriesFrame.isVisible()) {
+            categoriesFrame.dispose();
+        }
+        if (groceryItemsFrame != null && groceryItemsFrame.isVisible()) {
+            groceryItemsFrame.dispose();
+        }
+        if (shoppingCartFrame != null && shoppingCartFrame.isVisible()) {
+            shoppingCartFrame.setVisible(false);
+        }
+
+        /* ---------------------[ Check out start ]--------------------- */
+        checkoutFrame = new JFrame();
+        checkoutFrame.setLayout(new BorderLayout());
+        checkoutFrame.setTitle("Tindahan ni Aling Nena - Checkout");
+        checkoutFrame.setSize(800, 600);
+        checkoutFrame.setResizable(false);
+        checkoutFrame.setLocationRelativeTo(null);
+
+        checkoutFrame.addWindowListener(new WindowListener() {
+            @Override
+            public void windowOpened(WindowEvent e) {}
+
+            @Override
+            public void windowClosing(WindowEvent e) {
+                checkoutFrame.dispose();
+                mainFrame.setVisible(true);
+            }
+
+            @Override
+            public void windowClosed(WindowEvent e) {
+                checkoutFrame.dispose();
+                mainFrame.setVisible(true);
+            }
+
+            @Override
+            public void windowIconified(WindowEvent e) {
+                checkoutFrame.dispose();
+                mainFrame.setVisible(true);
+            }
+
+            @Override
+            public void windowDeiconified(WindowEvent e) {}
+
+            @Override
+            public void windowActivated(WindowEvent e) {}
+
+            @Override
+            public void windowDeactivated(WindowEvent e) {}
+        });
+
+        checkoutFrame.setIconImage(appIcon.getImage());
+
+        /* ---------------------[ Main panel start ]--------------------- */
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(bgBlack);
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        /* ---------------------[ Header start ]--------------------- */
+        JLabel titleLabel = new JLabel("Checkout item(s)");
+        titleLabel.setFont(titleFont);
+        titleLabel.setForeground(fgWhite);
+        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        headerPanel.add(titleLabel, BorderLayout.NORTH);
+        headerPanel.setBackground(bgBlack);
+        headerPanel.setOpaque(false);
+        /* ---------------------[ Header end ]--------------------- */
+
+        /* ---------------------[ Center start ]--------------------- */
+        JTextArea checkoutReceipt = new JTextArea("", 90, 40);
+        checkoutReceipt.setBackground(bgBtnBlack);
+        checkoutReceipt.setForeground(fgWhite);
+        checkoutReceipt.setMargin(new Insets(5, 5, 5, 5));
+        checkoutReceipt.setEditable(false);
+        checkoutReceipt.setFont(normalFont);
+
+        checkoutReceipt.append("\n Tindahan ni Aling Nena \n");
+        checkoutReceipt.append(String.format(" %s \n\n", getCurrentDate()));
+
+        String[] columns = {"Product", "Quantity", "Price", "Total Price"};
+        int[] columnLengths = new int[columns.length];
+
+        for (int i = 0; i < columns.length; i ++) {
+            columnLengths[i] = columns[i].length();
+        }
+
+        for (int i = 0; i < shoppingCartItems.size(); i ++) {
+            if (columnLengths[0] < shoppingCartItems.get(i).productName.length()) {
+                columnLengths[0] = shoppingCartItems.get(i).productName.length() + 5;
+            }
+            if (columnLengths[1] < Integer.toString(shoppingCartItems.get(i).quantity).length()) {
+                columnLengths[1] = Integer.toString(shoppingCartItems.get(i).quantity).length() + 5;
+            }
+            if (columnLengths[2] < Integer.toString(shoppingCartItems.get(i).price + 1).length()) {
+                columnLengths[2] = Integer.toString(shoppingCartItems.get(i).price + 1).length() + 5;
+            }
+            if (columnLengths[3] < Integer.toString((shoppingCartItems.get(i).price * shoppingCartItems.get(i).quantity) + 2).length()) {
+                columnLengths[3] = Integer.toString((shoppingCartItems.get(i).price * shoppingCartItems.get(i).quantity) + 2).length() + 5;
+            }
+        }
+
+        String columnStrFormat = " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "s \t %-" + columnLengths[2] + "s \t %-" + columnLengths[3] + "s\n";
+        String strFormat =       " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "d \t  ₱%-" + columnLengths[2] + "d \t  ₱%-" + columnLengths[3] + "d\n";
+        String footerStrFormat = " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "s \t %-" + columnLengths[2] + "s \t%-" + columnLengths[3] + "s\n";
+        
+        checkoutReceipt.append(String.format(columnStrFormat, columns[0], columns[1], columns[2], columns[3]));
+
+        int totalPrice = 0;
+        for (int i = 0; i < shoppingCartItems.size(); i ++) {
+            totalPrice += shoppingCartItems.get(i).price * shoppingCartItems.get(i).quantity;
+            if (shoppingCartItems.get(i).productName.length() < 10) {
+                strFormat =       " %-" + (columnLengths[0] + shoppingCartItems.get(i).productName.length()) + "s \t %-" + columnLengths[1] + "d \t ₱%-" + columnLengths[2] + "d \t ₱%-" + columnLengths[3] + "d\n";
+                footerStrFormat = " %-" + (columnLengths[0] + shoppingCartItems.get(i).productName.length()) + "s \t %-" + columnLengths[1] + "s \t %-" + columnLengths[2] + "s \t%-" + columnLengths[3] + "s\n";
+            } else {
+                strFormat =       " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "d \t ₱%-" + columnLengths[2] + "d \t ₱%-" + columnLengths[3] + "d\n";
+                footerStrFormat = " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "s \t %-" + columnLengths[2] + "s \t%-" + columnLengths[3] + "s\n";
+            }
+            
+            checkoutReceipt.append(String.format(strFormat, shoppingCartItems.get(i).productName, shoppingCartItems.get(i).quantity, shoppingCartItems.get(i).price, shoppingCartItems.get(i).price * shoppingCartItems.get(i).quantity));
+        
+            Connection connection = null;
+            try {
+                connection = connect();
+                Statement stmt = connection.createStatement();
+                
+                stmt.executeUpdate(String.format("UPDATE grocery_items SET stocks = stocks - %d WHERE id = %d", shoppingCartItems.get(i).quantity, shoppingCartItems.get(i).id));
+            } catch (SQLException e) {
+                System.err.println(e.getMessage());
+            } finally {
+                try {
+                    if (connection != null) {
+                        connection.close();
+                    }
+                } catch (SQLException e) {
+                    System.err.println(e.getMessage());
+                }
+            }
+        }
+
+        checkoutReceipt.append("\n");
+        checkoutReceipt.append(String.format(footerStrFormat, " ", " ", " ", String.format(" ₱%d", totalPrice)));
+        checkoutReceipt.append(String.format(footerStrFormat, " ", " ", " ", String.format("-₱%d", userMoney)));
+        checkoutReceipt.append("\n");
+        checkoutReceipt.append(String.format(footerStrFormat, " ", " ", " ", String.format(" ₱%d", userMoney - totalPrice)));
+        checkoutReceipt.append("\n\nThank you for buying on Tindahan ni Aling Nena :)");
+
+        shoppingCartItems.clear();
+
+        JScrollPane checkoutReceiptScroll = new JScrollPane(checkoutReceipt);
+        checkoutReceiptScroll.setPreferredSize(new Dimension(700, 400));
+        checkoutReceiptScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        checkoutReceiptScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+        checkoutReceiptScroll.setWheelScrollingEnabled(true);
+
+        JPanel centerPanel = new JPanel();
+        centerPanel.setBackground(bgBlack);
+        centerPanel.setOpaque(false);
+        centerPanel.add(checkoutReceiptScroll);
+        /* ---------------------[ Center end ]--------------------- */
+
+        /* ---------------------[ Footer start ]--------------------- */
+        CustomButton backButton = new CustomButton("Back to main menu");
+
+        backButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                checkoutFrame.dispose();
+                mainFrame.setVisible(true);
+            }
+        });
+
+        JPanel footerPanel = new JPanel(new BorderLayout());
+        footerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        footerPanel.setBackground(bgBlack);
+        footerPanel.setOpaque(false);
+        footerPanel.add(backButton);
+        /* ---------------------[ Footer end ]--------------------- */
+        mainPanel.add(headerPanel, BorderLayout.NORTH);
+        mainPanel.add(centerPanel, BorderLayout.CENTER);
+        mainPanel.add(footerPanel, BorderLayout.SOUTH);
+        /* ---------------------[ Main panel end ]--------------------- */
+
+        checkoutFrame.add(mainPanel);
+        /* ---------------------[ Check out end ]--------------------- */
+
+        checkoutFrame.setVisible(true);
+    }
+
+    private void initializeItemsFrame(int categoryId) {
+        if (categoriesFrame != null && categoriesFrame.isVisible()) {
+            categoriesFrame.dispose();
+        }
+        if (loadingGroceryItemsFrame != null && loadingGroceryItemsFrame.isVisible()) {
+            loadingGroceryItemsFrame.dispose();
+        }
+        if (mainFrame != null && mainFrame.isVisible()) {
+            mainFrame.dispose();
+        }
+
+         /* ---------------------[ Grocery items frame start ]--------------------- */
+        groceryItemsFrame = new JFrame();
+        groceryItemsFrame.setLayout(new BorderLayout());
+        groceryItemsFrame.setTitle(String.format("Tindahan ni Aling Nena - %s", getCategory(categoryId)));
+        groceryItemsFrame.setSize(800, 600);
+        groceryItemsFrame.setResizable(false);
+        groceryItemsFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        groceryItemsFrame.setLocationRelativeTo(null);
+
+        groceryItemsFrame.setIconImage(appIcon.getImage());
 
         /* ---------------------[ Main panel start ]--------------------- */
         JPanel mainPanel = new JPanel(new BorderLayout());
@@ -518,12 +1049,12 @@ public class Main {
         centerPanel.setBackground(bgBlack);
         centerPanel.setOpaque(false);
 
+        List<Product> products = new ArrayList<>();
+
         Connection connection = connect();
         try {
             Statement statement = connection.createStatement();
             ResultSet rs = statement.executeQuery(String.format("SELECT * FROM grocery_items WHERE category = %d", categoryId));
-
-            List<Product> products = new ArrayList<>();
 
             while (rs.next()) {
                 products.add(new Product(rs.getInt("id"), rs.getString("name"), getCategory(rs.getInt("category")), rs.getInt("stocks"), rs.getInt("price")));
@@ -536,14 +1067,25 @@ public class Main {
                 itemPanel.setBackground(bgItemPanelBlack);
                 itemPanel.setPreferredSize(new Dimension(200, 150));
 
-                ImageIcon itemIcon = new ImageIcon(String.format("Images/products/%s.png", products.get(i).name));
-                itemIcon = new ImageIcon(itemIcon.getImage().getScaledInstance(22, 22, Image.SCALE_SMOOTH));
+                ImageIcon itemIcon = null;
+
+                for (ProductPreview productPreview : productPreviews) {
+                    if (productPreview.getProductName().equals(products.get(i).name)) {
+                        itemIcon = productPreview.getProductPreview();
+                        break;
+                    }
+                }
+
+                if (itemIcon == null) {
+                    itemIcon = new ImageIcon(new ImageIcon(String.format("Images/products/%s.png", products.get(i).name)).getImage().getScaledInstance(22, 22, Image.SCALE_SMOOTH));
+                }
+
                 JLabel itemName = new JLabel(products.get(i).name);
                 itemName.setFont(btnFont);
                 itemName.setForeground(fgWhite);
                 itemName.setIcon(itemIcon);
 
-                JLabel itemPriceAndStocks = new JLabel(String.format("<html>Price: $%d<br />Stocks: %s</html>", products.get(i).price, (products.get(i).stocks > 0) ? Integer.toString(products.get(i).stocks) : "out of stock"));
+                JLabel itemPriceAndStocks = new JLabel(String.format("<html>Price: ₱%d<br />Stocks: %s</html>", products.get(i).price, (products.get(i).stocks > 0) ? Integer.toString(products.get(i).stocks) : "out of stock"));
                 itemPriceAndStocks.setFont(normalFont);
                 itemPriceAndStocks.setForeground(fgWhite);
 
@@ -553,10 +1095,55 @@ public class Main {
                 itemBuy.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
+                        for (int j = 0; j < shoppingCartItems.size(); j ++) {
+                            if (shoppingCartItems.get(j).id == products.get(chosenItem).id) {
+                                String value = JOptionPane.showInputDialog(null, String.format("Please enter the new quantity below: (Make sure it's lower than %d)", products.get(chosenItem).stocks), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.QUESTION_MESSAGE);
+
+                                if (value != null) {
+                                    if (value.isBlank()) {
+                                        actionPerformed(e);
+                                        return;
+                                    }
+
+                                    int finalValue = Integer.parseInt(value);
+
+                                    if (finalValue <= 0) {
+                                        actionPerformed(e);
+                                        return;
+                                    }
+
+                                    if (products.get(chosenItem).stocks - finalValue < 0) {
+                                        JOptionPane.showConfirmDialog(null, String.format("Item %s's stock is not enough to your entered quantity, want to continue? (This will override your selected quantity to available stock)", products.get(chosenItem).name), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                            
+                                        finalValue = products.get(chosenItem).stocks;
+                                    }
+                                    
+                                    int reply = JOptionPane.showConfirmDialog(null, String.format("Want to set item %s's quantity to %d (%d before)? Its total price will be ₱%s.", products.get(chosenItem).name, finalValue, shoppingCartItems.get(j).quantity, products.get(chosenItem).price * finalValue), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                                    
+                                    if (reply == JOptionPane.YES_OPTION) {
+                                        shoppingCartItems.set(j, new ShoppingCartItem(products.get(chosenItem).id, finalValue, products.get(chosenItem).name, products.get(chosenItem).price));
+                                    } else {
+                                        actionPerformed(e);
+                                    }
+                                }
+                                return;
+                            }
+                        }
+
                         String value = JOptionPane.showInputDialog(null, String.format("Please enter the quantity below: (Make sure it's lower than %d)", products.get(chosenItem).stocks), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.QUESTION_MESSAGE);
                         
                         if (value != null) {
+                            if (value.isBlank()) {
+                                actionPerformed(e);
+                                return;
+                            }
+
                             int finalValue = Integer.parseInt(value);
+
+                            if (finalValue <= 0) {
+                                actionPerformed(e);
+                                return;
+                            }
 
                             if (products.get(chosenItem).stocks - finalValue < 0) {
                                 JOptionPane.showConfirmDialog(null, String.format("Item %s's stock is not enough to your entered quantity, want to continue? (This will override your selected quantity to available stock)", products.get(chosenItem).name), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
@@ -564,8 +1151,13 @@ public class Main {
                                 finalValue = products.get(chosenItem).stocks;
                             }
 
-                            JOptionPane.showConfirmDialog(null, String.format("Want to add item %s with %d quantity to your shopping cart? It will add $%d to your total price.", products.get(chosenItem).name, finalValue, products.get(chosenItem).price * finalValue), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-                            shoppingCartItems.add(new ShoppingCartItem(products.get(chosenItem).id, finalValue, products.get(chosenItem).name, products.get(chosenItem).price));
+                            int reply = JOptionPane.showConfirmDialog(null, String.format("Want to add item %s with %d quantity to your shopping cart? It will add ₱%d to your total price.", products.get(chosenItem).name, finalValue, products.get(chosenItem).price * finalValue), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                            
+                            if (reply == JOptionPane.YES_OPTION) {
+                                shoppingCartItems.add(new ShoppingCartItem(products.get(chosenItem).id, finalValue, products.get(chosenItem).name, products.get(chosenItem).price));
+                            } else {
+                                actionPerformed(e);
+                            }
                         }
                     }
                 });
@@ -575,6 +1167,17 @@ public class Main {
                 itemPanel.add(itemBuy, BorderLayout.SOUTH);
 
                 centerPanel.add(itemPanel);
+            }
+
+            if (products.size() <= MINIMUM_ITEM_TO_SHOW_SCROLL_BARS) {
+                for (int i = 0; i < CURRENT_GROCERY_ITEMS_COUNT - products.size(); i ++) {
+                    centerPanel.add(new JPanel() {
+                        @Override
+                        public Color getBackground() {
+                            return bgBlack;
+                        }
+                    });
+                }
             }
         } catch (SQLException e) {
             System.err.println(e.getMessage());
@@ -598,8 +1201,16 @@ public class Main {
         };
         
         JScrollPane itemsScroll = new JScrollPane(centerPanel);
-        itemsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        itemsScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        itemsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        itemsScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+        itemsScroll.setWheelScrollingEnabled(false);
+
+        if (products.size() > MINIMUM_ITEM_TO_SHOW_SCROLL_BARS) {
+            itemsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+            itemsScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+            itemsScroll.setWheelScrollingEnabled(true);
+        }
+
         itemsScroll.getVerticalScrollBar().setUnitIncrement(8);
         itemsScroll.getHorizontalScrollBar().setUnitIncrement(8);
         itemsScroll.getViewport().setBackground(bgBlack);
@@ -621,17 +1232,19 @@ public class Main {
         backButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                fourthFrame.dispose();
-                initializeThirdFrame();
-                thirdFrame.setVisible(true);
+                groceryItemsFrame.dispose();
+                initializeCategoriesFrame();
+                categoriesFrame.setVisible(true);
             }
         });
 
         viewCartButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                for (ShoppingCartItem shoppingCartItem : shoppingCartItems) {
-                    System.out.println(String.format("%d - %s - %d - %d", shoppingCartItem.id, shoppingCartItem.productName, shoppingCartItem.quantity, shoppingCartItem.price));
+                if (shoppingCartItems.size() <= 0) {
+                    JOptionPane.showMessageDialog(null, "Your cart is still empty", "Tindahan ni Aling Nena", JOptionPane.ERROR_MESSAGE);
+                } else {
+                    initializeShoppingCartItems(categoryId);
                 }
             }
         });
@@ -647,10 +1260,10 @@ public class Main {
         mainPanel.add(itemsScroll, BorderLayout.CENTER);
         mainPanel.add(footerPanel, BorderLayout.SOUTH);
         /* ---------------------[ Main panel end ]--------------------- */
-        fourthFrame.add(mainPanel);
-        /* ---------------------[ Fourth frame end ]--------------------- */
+        groceryItemsFrame.add(mainPanel);
+        /* ---------------------[ Grocery items frame end ]--------------------- */
         
-        fourthFrame.setVisible(true);
+        groceryItemsFrame.setVisible(true);
     }
 
     private void initialize() {
@@ -698,9 +1311,9 @@ public class Main {
         btnGenerateGroceryItems.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                initializeSecondaryFrame();
+                initializeLoadingFrame();
                 taskOutput.setText("");
-                secondaryFrame.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+                loadingGroceryItemsFrame.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
                 task = new Task();
                 task.addPropertyChangeListener(new PropertyChangeListener() {
                     @Override
@@ -718,7 +1331,7 @@ public class Main {
         btnBrowseCategories.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                initializeThirdFrame();
+                initializeCategoriesFrame();
             }
         });
 
