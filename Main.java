@@ -911,7 +911,7 @@ public class Main {
         }
 
         String columnStrFormat = " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "s \t %-" + columnLengths[2] + "s \t %-" + columnLengths[3] + "s\n";
-        String strFormat =       " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "d \t  ₱%-" + columnLengths[2] + "d \t  ₱%-" + columnLengths[3] + "d\n";
+        String strFormat =       " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "d \t ₱%-" + columnLengths[2] + "d \t  ₱%-" + columnLengths[3] + "d\n";
         String footerStrFormat = " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "s \t %-" + columnLengths[2] + "s \t%-" + columnLengths[3] + "s\n";
         
         checkoutReceipt.append(String.format(columnStrFormat, columns[0], columns[1], columns[2], columns[3]));
@@ -919,13 +919,6 @@ public class Main {
         int totalPrice = 0;
         for (int i = 0; i < shoppingCartItems.size(); i ++) {
             totalPrice += shoppingCartItems.get(i).price * shoppingCartItems.get(i).quantity;
-            if (shoppingCartItems.get(i).productName.length() < 10) {
-                strFormat =       " %-" + (columnLengths[0] + shoppingCartItems.get(i).productName.length()) + "s \t %-" + columnLengths[1] + "d \t ₱%-" + columnLengths[2] + "d \t ₱%-" + columnLengths[3] + "d\n";
-                footerStrFormat = " %-" + (columnLengths[0] + shoppingCartItems.get(i).productName.length()) + "s \t %-" + columnLengths[1] + "s \t %-" + columnLengths[2] + "s \t%-" + columnLengths[3] + "s\n";
-            } else {
-                strFormat =       " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "d \t ₱%-" + columnLengths[2] + "d \t ₱%-" + columnLengths[3] + "d\n";
-                footerStrFormat = " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "s \t %-" + columnLengths[2] + "s \t%-" + columnLengths[3] + "s\n";
-            }
             
             checkoutReceipt.append(String.format(strFormat, shoppingCartItems.get(i).productName, shoppingCartItems.get(i).quantity, shoppingCartItems.get(i).price, shoppingCartItems.get(i).price * shoppingCartItems.get(i).quantity));
         
