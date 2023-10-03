@@ -7,6 +7,7 @@ import javax.swing.plaf.*;
 import javax.swing.plaf.basic.*;
 import java.sql.*;
 import java.sql.Statement;
+import java.text.MessageFormat;
 import java.time.*;
 import java.time.format.*;
 import java.util.*;
@@ -803,6 +804,94 @@ public class Main {
         shoppingCartFrame.setVisible(true);
     }
 
+    private static String formatInt(int amount) {
+        return new MessageFormat("{0,number}").format(new Object[]{amount});
+    }
+
+    private String generateReceipt(List<ShoppingCartItem> shoppingCartItems) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(
+            "<html>"
+            +   "<style type='text/css'>"
+            +       "body, h1, th, td {"
+            +           "font-family: sans-serif;"
+            +           "font-size: 12pt;"
+            +       "}"
+            +       "h1 {"
+            +           "font-size: 20pt;"
+            +       "}"
+            +   "</style>"
+            +   "<body>"
+        );
+        sb.append("<h1>- Receipt -</h1>");
+        
+        sb.append(
+            "<table width='650' cellspacing='0'>"
+            +   "<thead>"
+            +       "<tr>"
+            +           "<th width='50%' align='left'>Item</th>"
+            +           "<th width='20%' align='right'>Quantity</th>"
+            +           "<th width='30%' align='right'>Amount</th>"
+            +       "</tr>"
+            +   "</thead>"
+            +   "<tbody>"
+        );
+
+        int totalPrice = 0;
+        for (ShoppingCartItem shoppingCartItem : shoppingCartItems) {
+            totalPrice += shoppingCartItem.price * shoppingCartItem.quantity;
+            sb.append(
+                "<tr>"
+                +   "<td>"
+                +       shoppingCartItem.productName
+                +   "</td>"
+                +   "<td align='right'>"
+                +       formatInt(shoppingCartItem.quantity)
+                +   "</td>"
+                +   "<td align='right'>"
+                +       String.format("$%s", formatInt(shoppingCartItem.price))
+                +   "</td>"
+                +"</tr>"
+            );
+
+            Connection connection = null;
+            try {
+                connection = connect();
+                Statement stmt = connection.createStatement();
+
+                stmt.executeUpdate(String.format("UPDATE grocery_items SET stocks = stocks - %d WHERE id = %d", shoppingCartItem.quantity, shoppingCartItem.id));
+            } catch (SQLException e) {
+                System.err.println(e.getMessage());
+            } finally {
+                try {
+                    if (connection != null) {
+                        connection.close();
+                    }
+                } catch (SQLException e) {
+                    System.err.println(e.getMessage());
+                }
+            }
+        }
+        sb.append(
+            "<tr class='overline'>"
+            +   "<td>"
+            +       "&nbsp;"
+            +   "</td>"
+            +   "<td align='right'>"
+            +       "Total"
+            +   "</td>"
+            +   "<td align='right'>"
+            +       String.format("$%s", formatInt(totalPrice))
+            +   "</td>"
+            + "</tr>"
+            + "</tbody>"
+        );
+
+        shoppingCartItems.clear();
+
+        return sb.toString();
+    }
+
     private void initializeCheckoutFrame(int userMoney) {
         if (mainFrame != null && mainFrame.isVisible()) {
             mainFrame.dispose();
@@ -878,83 +967,19 @@ public class Main {
         /* ---------------------[ Header end ]--------------------- */
 
         /* ---------------------[ Center start ]--------------------- */
-        JTextArea checkoutReceipt = new JTextArea("", 90, 40);
-        checkoutReceipt.setBackground(bgBtnBlack);
-        checkoutReceipt.setForeground(fgWhite);
-        checkoutReceipt.setMargin(new Insets(5, 5, 5, 5));
-        checkoutReceipt.setEditable(false);
-        checkoutReceipt.setFont(normalFont);
+        JLabel checkoutReceiptLabel = new JLabel(generateReceipt(shoppingCartItems));
+        checkoutReceiptLabel.setFont(normalFont);
+        checkoutReceiptLabel.setBackground(bgBlack);
+        checkoutReceiptLabel.setForeground(fgWhite);
 
-        checkoutReceipt.append("\n Tindahan ni Aling Nena \n");
-        checkoutReceipt.append(String.format(" %s \n\n", getCurrentDate()));
-
-        String[] columns = {"Product", "Quantity", "Price", "Total Price"};
-        int[] columnLengths = new int[columns.length];
-
-        for (int i = 0; i < columns.length; i ++) {
-            columnLengths[i] = columns[i].length();
-        }
-
-        for (int i = 0; i < shoppingCartItems.size(); i ++) {
-            if (columnLengths[0] < shoppingCartItems.get(i).productName.length()) {
-                columnLengths[0] = shoppingCartItems.get(i).productName.length() + 5;
-            }
-            if (columnLengths[1] < Integer.toString(shoppingCartItems.get(i).quantity).length()) {
-                columnLengths[1] = Integer.toString(shoppingCartItems.get(i).quantity).length() + 5;
-            }
-            if (columnLengths[2] < Integer.toString(shoppingCartItems.get(i).price + 1).length()) {
-                columnLengths[2] = Integer.toString(shoppingCartItems.get(i).price + 1).length() + 5;
-            }
-            if (columnLengths[3] < Integer.toString((shoppingCartItems.get(i).price * shoppingCartItems.get(i).quantity) + 2).length()) {
-                columnLengths[3] = Integer.toString((shoppingCartItems.get(i).price * shoppingCartItems.get(i).quantity) + 2).length() + 5;
-            }
-        }
-
-        String columnStrFormat = " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "s \t %-" + columnLengths[2] + "s \t %-" + columnLengths[3] + "s\n";
-        String strFormat =       " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "d \t ₱%-" + columnLengths[2] + "d \t  ₱%-" + columnLengths[3] + "d\n";
-        String footerStrFormat = " %-" + columnLengths[0] + "s \t %-" + columnLengths[1] + "s \t %-" + columnLengths[2] + "s \t%-" + columnLengths[3] + "s\n";
-        
-        checkoutReceipt.append(String.format(columnStrFormat, columns[0], columns[1], columns[2], columns[3]));
-
-        int totalPrice = 0;
-        for (int i = 0; i < shoppingCartItems.size(); i ++) {
-            totalPrice += shoppingCartItems.get(i).price * shoppingCartItems.get(i).quantity;
-            
-            checkoutReceipt.append(String.format(strFormat, shoppingCartItems.get(i).productName, shoppingCartItems.get(i).quantity, shoppingCartItems.get(i).price, shoppingCartItems.get(i).price * shoppingCartItems.get(i).quantity));
-        
-            Connection connection = null;
-            try {
-                connection = connect();
-                Statement stmt = connection.createStatement();
-                
-                stmt.executeUpdate(String.format("UPDATE grocery_items SET stocks = stocks - %d WHERE id = %d", shoppingCartItems.get(i).quantity, shoppingCartItems.get(i).id));
-            } catch (SQLException e) {
-                System.err.println(e.getMessage());
-            } finally {
-                try {
-                    if (connection != null) {
-                        connection.close();
-                    }
-                } catch (SQLException e) {
-                    System.err.println(e.getMessage());
-                }
-            }
-        }
-
-        checkoutReceipt.append("\n");
-        checkoutReceipt.append(String.format(footerStrFormat, " ", " ", " ", String.format(" ₱%d", totalPrice)));
-        checkoutReceipt.append(String.format(footerStrFormat, " ", " ", " ", String.format("-₱%d", userMoney)));
-        checkoutReceipt.append("\n");
-        checkoutReceipt.append(String.format(footerStrFormat, " ", " ", " ", String.format(" ₱%d", userMoney - totalPrice)));
-        checkoutReceipt.append("\n\nThank you for buying on Tindahan ni Aling Nena :)");
-
-        shoppingCartItems.clear();
-
-        JScrollPane checkoutReceiptScroll = new JScrollPane(checkoutReceipt);
+        JScrollPane checkoutReceiptScroll = new JScrollPane(checkoutReceiptLabel);
         checkoutReceiptScroll.setPreferredSize(new Dimension(700, 400));
         checkoutReceiptScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         checkoutReceiptScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
         checkoutReceiptScroll.setWheelScrollingEnabled(true);
+        checkoutReceiptScroll.getViewport().setBackground(bgBlack);
+        checkoutReceiptScroll.getVerticalScrollBar().setUnitIncrement(8);
+        checkoutReceiptScroll.getHorizontalScrollBar().setUnitIncrement(8);
 
         JPanel centerPanel = new JPanel();
         centerPanel.setBackground(bgBlack);
