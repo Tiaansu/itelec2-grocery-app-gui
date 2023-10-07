@@ -636,59 +636,63 @@ public class Main {
             itemUpdate.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    for (int j = 0; j < products.size(); j ++) {
-                        if (products.get(j).id == shoppingCartItems.get(chosenItemToUpdate).id) {
-                            String value = JOptionPane.showInputDialog(null, String.format("Please enter the new quantity below: (Make sure it's lower than %d)", products.get(j).stocks), String.format("Tindahan ni Aling Nena - Update %s", shoppingCartItems.get(chosenItemToUpdate).productName), JOptionPane.QUESTION_MESSAGE);
-                            
-                            if (value != null) {
-                                if (value.isBlank()) {
-                                    actionPerformed(e);
-                                    return;
-                                }
+                    try {
+                        for (int j = 0; j < products.size(); j ++) {
+                            if (products.get(j).id == shoppingCartItems.get(chosenItemToUpdate).id) {
+                                String value = JOptionPane.showInputDialog(null, String.format("Please enter the new quantity below: (Make sure it's lower than %d)", products.get(j).stocks), String.format("Tindahan ni Aling Nena - Update %s", shoppingCartItems.get(chosenItemToUpdate).productName), JOptionPane.QUESTION_MESSAGE);
+                                
+                                if (value != null) {
+                                    if (value.isBlank()) {
+                                        actionPerformed(e);
+                                        return;
+                                    }
 
-                                int finalValue = Integer.parseInt(value);
+                                    int finalValue = Integer.parseInt(value);
 
-                                if (finalValue < 0) {
-                                    actionPerformed(e);
-                                    return;
-                                }
+                                    if (finalValue < 0) {
+                                        actionPerformed(e);
+                                        return;
+                                    }
 
-                                if (finalValue == 0) {
-                                    int reply = JOptionPane.showConfirmDialog(null, String.format("Want to remove item %s with %d of quantity in your shopping cart? It will decrease your shopping cart's total price by ₱%s.", shoppingCartItems.get(chosenItemToUpdate).productName, shoppingCartItems.get(chosenItemToUpdate).quantity, products.get(j).price * shoppingCartItems.get(chosenItemToUpdate).quantity), String.format("Tindahan ni Aling Nena - Remove %s", shoppingCartItems.get(chosenItemToUpdate).productName), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                                    if (finalValue == 0) {
+                                        int reply = JOptionPane.showConfirmDialog(null, String.format("Want to remove item %s with %d of quantity in your shopping cart? It will decrease your shopping cart's total price by ₱%s.", shoppingCartItems.get(chosenItemToUpdate).productName, shoppingCartItems.get(chosenItemToUpdate).quantity, products.get(j).price * shoppingCartItems.get(chosenItemToUpdate).quantity), String.format("Tindahan ni Aling Nena - Remove %s", shoppingCartItems.get(chosenItemToUpdate).productName), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 
-                                    if (reply == JOptionPane.YES_OPTION) {
-                                        shoppingCartItems.remove(chosenItemToUpdate);
+                                        if (reply == JOptionPane.YES_OPTION) {
+                                            shoppingCartItems.remove(chosenItemToUpdate);
 
-                                        if (shoppingCartItems.size() <= 0) {
-                                            shoppingCartFrame.dispose();
-                                            initializeItemsFrame(categoryId);
+                                            if (shoppingCartItems.size() <= 0) {
+                                                shoppingCartFrame.dispose();
+                                                initializeItemsFrame(categoryId);
+                                            } else {
+                                                shoppingCartFrame.setVisible(false);
+                                                initializeShoppingCartItems(categoryId);
+                                            }
                                         } else {
-                                            shoppingCartFrame.setVisible(false);
-                                            initializeShoppingCartItems(categoryId);
+                                            actionPerformed(e);
                                         }
+                                        return;
+                                    }
+
+                                    if (products.get(j).stocks - finalValue < 0) {
+                                        JOptionPane.showConfirmDialog(null, String.format("Item %s's stock is not enough to your entered quantity, want to continue? (This will override your selected quantity to available stock)", shoppingCartItems.get(chosenItemToUpdate).productName), String.format("Tindahan ni Aling Nena - Update %s", shoppingCartItems.get(chosenItemToUpdate).productName), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+
+                                        finalValue = products.get(j).stocks;
+                                    }
+
+                                    int reply = JOptionPane.showConfirmDialog(null, String.format("Want to set item %s's quantity to %d (%d before)? Its total price will be ₱%s.", products.get(j).name, finalValue, shoppingCartItems.get(chosenItemToUpdate).quantity, products.get(j).price * finalValue), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(j).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                                
+                                    if (reply == JOptionPane.YES_OPTION) {
+                                        shoppingCartItems.set(chosenItemToUpdate, new ShoppingCartItem(products.get(j).id, finalValue, products.get(j).name, products.get(j).price));
+                                        shoppingCartFrame.setVisible(false);
+                                        initializeShoppingCartItems(categoryId);
                                     } else {
                                         actionPerformed(e);
                                     }
-                                    return;
-                                }
-
-                                if (products.get(j).stocks - finalValue < 0) {
-                                    JOptionPane.showConfirmDialog(null, String.format("Item %s's stock is not enough to your entered quantity, want to continue? (This will override your selected quantity to available stock)", shoppingCartItems.get(chosenItemToUpdate).productName), String.format("Tindahan ni Aling Nena - Update %s", shoppingCartItems.get(chosenItemToUpdate).productName), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-
-                                    finalValue = products.get(j).stocks;
-                                }
-
-                                int reply = JOptionPane.showConfirmDialog(null, String.format("Want to set item %s's quantity to %d (%d before)? Its total price will be ₱%s.", products.get(j).name, finalValue, shoppingCartItems.get(chosenItemToUpdate).quantity, products.get(j).price * finalValue), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(j).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-                            
-                                if (reply == JOptionPane.YES_OPTION) {
-                                    shoppingCartItems.set(chosenItemToUpdate, new ShoppingCartItem(products.get(j).id, finalValue, products.get(j).name, products.get(j).price));
-                                    shoppingCartFrame.setVisible(false);
-                                    initializeShoppingCartItems(categoryId);
-                                } else {
-                                    actionPerformed(e);
                                 }
                             }
                         }
+                    } catch (NumberFormatException ex) {
+                        actionPerformed(e);
                     }
                 }
             });
@@ -1113,69 +1117,73 @@ public class Main {
                 itemBuy.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
-                        for (int j = 0; j < shoppingCartItems.size(); j ++) {
-                            if (shoppingCartItems.get(j).id == products.get(chosenItem).id) {
-                                String value = JOptionPane.showInputDialog(null, String.format("Please enter the new quantity below: (Make sure it's lower than %d)", products.get(chosenItem).stocks), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.QUESTION_MESSAGE);
+                        try {
+                            for (int j = 0; j < shoppingCartItems.size(); j ++) {
+                                if (shoppingCartItems.get(j).id == products.get(chosenItem).id) {
+                                    String value = JOptionPane.showInputDialog(null, String.format("Please enter the new quantity below: (Make sure it's lower than %d)", products.get(chosenItem).stocks), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.QUESTION_MESSAGE);
 
-                                if (value != null) {
-                                    if (value.isBlank()) {
-                                        actionPerformed(e);
-                                        return;
-                                    }
+                                    if (value != null) {
+                                        if (value.isBlank()) {
+                                            actionPerformed(e);
+                                            return;
+                                        }
 
-                                    int finalValue = Integer.parseInt(value);
+                                        int finalValue = Integer.parseInt(value);
 
-                                    if (finalValue <= 0) {
-                                        actionPerformed(e);
-                                        return;
-                                    }
+                                        if (finalValue <= 0) {
+                                            actionPerformed(e);
+                                            return;
+                                        }
 
-                                    if (products.get(chosenItem).stocks - finalValue < 0) {
-                                        JOptionPane.showConfirmDialog(null, String.format("Item %s's stock is not enough to your entered quantity, want to continue? (This will override your selected quantity to available stock)", products.get(chosenItem).name), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-                            
-                                        finalValue = products.get(chosenItem).stocks;
+                                        if (products.get(chosenItem).stocks - finalValue < 0) {
+                                            JOptionPane.showConfirmDialog(null, String.format("Item %s's stock is not enough to your entered quantity, want to continue? (This will override your selected quantity to available stock)", products.get(chosenItem).name), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                                
+                                            finalValue = products.get(chosenItem).stocks;
+                                        }
+                                        
+                                        int reply = JOptionPane.showConfirmDialog(null, String.format("Want to set item %s's quantity to %d (%d before)? Its total price will be ₱%s.", products.get(chosenItem).name, finalValue, shoppingCartItems.get(j).quantity, products.get(chosenItem).price * finalValue), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                                        
+                                        if (reply == JOptionPane.YES_OPTION) {
+                                            shoppingCartItems.set(j, new ShoppingCartItem(products.get(chosenItem).id, finalValue, products.get(chosenItem).name, products.get(chosenItem).price));
+                                        } else {
+                                            actionPerformed(e);
+                                        }
                                     }
-                                    
-                                    int reply = JOptionPane.showConfirmDialog(null, String.format("Want to set item %s's quantity to %d (%d before)? Its total price will be ₱%s.", products.get(chosenItem).name, finalValue, shoppingCartItems.get(j).quantity, products.get(chosenItem).price * finalValue), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-                                    
-                                    if (reply == JOptionPane.YES_OPTION) {
-                                        shoppingCartItems.set(j, new ShoppingCartItem(products.get(chosenItem).id, finalValue, products.get(chosenItem).name, products.get(chosenItem).price));
-                                    } else {
-                                        actionPerformed(e);
-                                    }
+                                    return;
                                 }
-                                return;
-                            }
-                        }
-
-                        String value = JOptionPane.showInputDialog(null, String.format("Please enter the quantity below: (Make sure it's lower than %d)", products.get(chosenItem).stocks), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.QUESTION_MESSAGE);
-                        
-                        if (value != null) {
-                            if (value.isBlank()) {
-                                actionPerformed(e);
-                                return;
                             }
 
-                            int finalValue = Integer.parseInt(value);
-
-                            if (finalValue <= 0) {
-                                actionPerformed(e);
-                                return;
-                            }
-
-                            if (products.get(chosenItem).stocks - finalValue < 0) {
-                                JOptionPane.showConfirmDialog(null, String.format("Item %s's stock is not enough to your entered quantity, want to continue? (This will override your selected quantity to available stock)", products.get(chosenItem).name), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                            String value = JOptionPane.showInputDialog(null, String.format("Please enter the quantity below: (Make sure it's lower than %d)", products.get(chosenItem).stocks), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.QUESTION_MESSAGE);
                             
-                                finalValue = products.get(chosenItem).stocks;
-                            }
+                            if (value != null) {
+                                if (value.isBlank()) {
+                                    actionPerformed(e);
+                                    return;
+                                }
 
-                            int reply = JOptionPane.showConfirmDialog(null, String.format("Want to add item %s with %d quantity to your shopping cart? It will add ₱%d to your total price.", products.get(chosenItem).name, finalValue, products.get(chosenItem).price * finalValue), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-                            
-                            if (reply == JOptionPane.YES_OPTION) {
-                                shoppingCartItems.add(new ShoppingCartItem(products.get(chosenItem).id, finalValue, products.get(chosenItem).name, products.get(chosenItem).price));
-                            } else {
-                                actionPerformed(e);
+                                int finalValue = Integer.parseInt(value);
+
+                                if (finalValue <= 0) {
+                                    actionPerformed(e);
+                                    return;
+                                }
+
+                                if (products.get(chosenItem).stocks - finalValue < 0) {
+                                    JOptionPane.showConfirmDialog(null, String.format("Item %s's stock is not enough to your entered quantity, want to continue? (This will override your selected quantity to available stock)", products.get(chosenItem).name), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                                
+                                    finalValue = products.get(chosenItem).stocks;
+                                }
+
+                                int reply = JOptionPane.showConfirmDialog(null, String.format("Want to add item %s with %d quantity to your shopping cart? It will add ₱%d to your total price.", products.get(chosenItem).name, finalValue, products.get(chosenItem).price * finalValue), String.format("Tindahan ni Aling Nena - Add %s to cart", products.get(chosenItem).name), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                                
+                                if (reply == JOptionPane.YES_OPTION) {
+                                    shoppingCartItems.add(new ShoppingCartItem(products.get(chosenItem).id, finalValue, products.get(chosenItem).name, products.get(chosenItem).price));
+                                } else {
+                                    actionPerformed(e);
+                                }
                             }
+                        } catch (NumberFormatException ex) {
+                            actionPerformed(e);
                         }
                     }
                 });
