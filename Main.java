@@ -116,12 +116,6 @@ public class Main {
         return connection;
     }
 
-    private String getCurrentDate() {
-        LocalDateTime now = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEEE, MMMM dd yyyy - hh:mm:ss a");
-        return now.format(formatter);
-    }
-
     /**
      * Thanks to this answer from stackoverflow: https://stackoverflow.com/a/23958880
      */
@@ -762,29 +756,7 @@ public class Main {
         checkOutButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                int totalPrice = 0;
-
-                for (ShoppingCartItem shoppingCartItem : shoppingCartItems) {
-                    totalPrice += shoppingCartItem.price * shoppingCartItem.quantity;
-                }
-
-                String value = JOptionPane.showInputDialog(null, String.format("Please enter your money below: (Make sure it's higher than ₱%d)", totalPrice), "Tindahan ni Aling Nena - Checkout shopping cart items", JOptionPane.QUESTION_MESSAGE);
-                
-                if (value != null) {
-                    if (value.isBlank()) {
-                        actionPerformed(e);
-                        return;
-                    }
-
-                    int finalValue = Integer.parseInt(value);
-
-                    if (totalPrice > finalValue) {
-                        JOptionPane.showConfirmDialog(null, String.format("Insufficient money, you still need ₱%d to continue.", totalPrice - finalValue), "Tindahan ni Aling Nena - Checkout shopping cart items", JOptionPane.YES_OPTION, JOptionPane.ERROR_MESSAGE);
-                        actionPerformed(e);
-                        return;
-                    }
-                    initializeCheckoutFrame(finalValue);
-                }
+                initializeCheckoutFrame();
             }
         });
 
@@ -812,6 +784,14 @@ public class Main {
         return new MessageFormat("{0,number}").format(new Object[]{amount});
     }
 
+    public String generateOrderId() {
+        int orderId = new Random().nextInt(90_000_000) + 10_000_000;
+        return String.format("TNA-%d", orderId);
+    }
+
+    /**
+     * Thanks to this answer from stackoverflow: https://stackoverflow.com/a/26464021
+     */
     private String generateReceipt(List<ShoppingCartItem> shoppingCartItems) {
         StringBuilder sb = new StringBuilder();
         sb.append(
@@ -820,6 +800,7 @@ public class Main {
             +       "body, h1, th, td {"
             +           "font-family: sans-serif;"
             +           "font-size: 12pt;"
+            +           "padding: 5pt;"
             +       "}"
             +       "h1 {"
             +           "font-size: 20pt;"
@@ -853,7 +834,7 @@ public class Main {
                 +       formatInt(shoppingCartItem.quantity)
                 +   "</td>"
                 +   "<td align='right'>"
-                +       String.format("$%s", formatInt(shoppingCartItem.price))
+                +       String.format("₱%s", formatInt(shoppingCartItem.price))
                 +   "</td>"
                 +"</tr>"
             );
@@ -882,13 +863,25 @@ public class Main {
             +       "&nbsp;"
             +   "</td>"
             +   "<td align='right'>"
-            +       "Total"
+            +       "Subtotal"
             +   "</td>"
             +   "<td align='right'>"
-            +       String.format("$%s", formatInt(totalPrice))
+            +       String.format("₱%s", formatInt(totalPrice))
+            +   "</td>"
+            + "</tr>"
+            + "<tr>"
+            +       "<td colspan='3'>"
+            +           "&nbsp;"
+            +       "</td>"
+            + "</tr>"
+            + "<tr>"
+            +   "<td colspan='3'>"
+            +       String.format("Your order id is %s. Please wait up to 1 hour to 3 hours for your order to be delivered. And also prepare ₱%s for the payment.", generateOrderId(), formatInt(totalPrice))
             +   "</td>"
             + "</tr>"
             + "</tbody>"
+            + "</body>"
+            + "</html>"
         );
 
         shoppingCartItems.clear();
@@ -896,7 +889,7 @@ public class Main {
         return sb.toString();
     }
 
-    private void initializeCheckoutFrame(int userMoney) {
+    private void initializeCheckoutFrame() {
         if (mainFrame != null && mainFrame.isVisible()) {
             mainFrame.dispose();
         }
